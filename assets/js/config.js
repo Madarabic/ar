@@ -1,5 +1,5 @@
 // GANTI DENGAN URL DEPLOYMENT WEB APP APPS SCRIPT ANDA
-const API_URL = "https://script.google.com/macros/s/AKfycbx_YOUR_DEPLOYED_SCRIPT_ID_HERE/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxYvH9ndtiiMpspJJAIBLVUqLdRlvG9y90ZMmNm_n_XmONLBabkiin1Z04VLWuVscjd/exec";
 
 async function apiCall(action, method = "GET", data = null) {
   let url = `${API_URL}?action=${action}`;
