@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Siswa - MADARABIC</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+  <nav class="bg-blue-900 text-white p-4 flex justify-between items-center">
+    <span class="font-bold text-lg">MADARABIC LMS</span>
+    <div class="flex gap-4 items-center">
+      <span id="userName" class="text-sm"></span>
+      <button onclick="logout()" class="bg-red-600 px-3 py-1 rounded text-sm">Keluar</button>
+    </div>
+  </nav>
+
+  <div class="max-w-6xl mx-auto p-4">
+    <!-- Level Status Banner -->
+    <div class="bg-white p-4 rounded border mb-6 flex justify-between items-center">
+      <div>
+        <h2 class="text-sm text-gray-500">Tingkat Bahasa Arab Anda</h2>
+        <span id="userLevel" class="text-xl font-bold text-blue-900">Belum Placement Test</span>
+      </div>
+      <a id="btnPlacement" href="placement-test.html" class="bg-amber-600 text-white px-4 py-2 rounded text-sm">Ikuti Placement Test</a>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="flex border-b border-gray-300 mb-6 bg-white rounded-t">
+      <button onclick="switchTab('catalog')" id="tabCatalog" class="p-3 font-semibold border-b-2 border-blue-900 text-blue-900">Katalog Kursus</button>
+      <button onclick="switchTab('mycourses')" id="tabMyCourses" class="p-3 font-semibold text-gray-600">Kelas Saya</button>
+      <button onclick="switchTab('certs')" id="tabCerts" class="p-3 font-semibold text-gray-600">Sertifikat Saya</button>
+    </div>
+
+    <!-- TAB 1: Katalog Kursus -->
+    <div id="secCatalog" class="space-y-4">
+      <h3 class="font-bold text-lg">Rekomendasi Kursus Sesuai Level</h3>
+      <div id="courseGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+    </div>
+
+    <!-- TAB 2: Kelas Saya -->
+    <div id="secMyCourses" class="hidden space-y-6">
+      <h3 class="font-bold text-lg">Kelas Yang Diikuti</h3>
+      <div id="myCoursesList" class="space-y-4"></div>
+    </div>
+
+    <!-- TAB 3: Sertifikat Saya -->
+    <div id="secCerts" class="hidden space-y-4">
+      <h3 class="font-bold text-lg">Sertifikat Kelulusan</h3>
+      <div id="certList" class="space-y-3"></div>
+    </div>
+  </div>
+
+  <!-- Modal Enroll / Upload Bayar -->
+  <div id="enrollModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4">
+    <div class="bg-white p-6 rounded max-w-md w-full">
+      <h3 class="font-bold text-lg mb-2">Upload Bukti Pembayaran</h3>
+      <p class="text-sm text-gray-600 mb-4">Transfer biaya pendaftaran ke Rekening BCA: 123-456-7890 an MADARABIC</p>
+      <input type="hidden" id="enrollCourseId">
+      <input type="file" id="paymentProof" class="mb-4 w-full text-sm">
+      <div class="flex justify-end gap-2">
+        <button onclick="closeEnrollModal()" class="px-4 py-2 border rounded">Batal</button>
+        <button onclick="submitEnrollment()" class="px-4 py-2 bg-blue-900 text-white rounded">Kirim</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/config.js"></script>
+  <script>
+    const user = checkAuth('Student');
+    document.getElementById('userName').innerText = user.name;
+    document.getElementById('userLevel').innerText = user.assignedLevel || 'PENDING';
+
+    if (user.assignedLevel !== 'PENDING') {
+      document.getElementById('btnPlacement').innerText = 'Ulangi Placement Test';
+    }
+
+    function switchTab(tab) {
+      ['secCatalog', 'secMyCourses', 'secCerts'].forEach(id => document.getElementById(id).classList.add('hidden'));
+      ['tabCatalog', 'tabMyCourses', 'tabCerts'].forEach(id => {
+        document.getElementById(id).classList.remove('border-b-2', 'border-blue-900', 'text-blue-900');
+        document.getElementById(id).classList.add('text-gray-600');
+      });
+
+      if (tab === 'catalog') {
+        document.getElementById('secCatalog').classList.remove('hidden');
+        document.getElementById('tabCatalog').classList.add('border-b-2', 'border-blue-900', 'text-blue-900');
+        loadCatalog();
+      } else if (tab === 'mycourses') {
+        document.getElementById('secMyCourses').classList.remove('hidden');
+        document.getElementById('tabMyCourses').classList.add('border-b-2', 'border-blue-900', 'text-blue-900');
+        loadMyCourses();
+      } else if (tab === 'certs') {
+        document.getElementById('secCerts').classList.remove('hidden');
+        document.getElementById('tabCerts').classList.add('border-b-2', 'border-blue-900', 'text-blue-900');
+        loadCertificates();
+      }
+    }
+
+    async function loadCatalog() {
+      const res = await apiCall('getCourses', 'GET', { level: user.assignedLevel });
+      const grid = document.getElementById('courseGrid');
+      grid.innerHTML = '';
+      if (res.status === 'success' && res.data.length > 0) {
+        res.data.forEach(c => {
+          grid.innerHTML += `
+            <div class="bg-white p-4 rounded border">
+              <span class="text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-1 rounded">${c.level}</span>
+              <h4 class="font-bold text-lg mt-2">${c.title}</h4>
+              <button onclick="openEnrollModal('${c.courseId}')" class="mt-4 w-full bg-blue-900 text-white py-2 rounded text-sm">Daftar Kursus Ini</button>
+            </div>
+          `;
+        });
+      } else {
+        grid.innerHTML = '<p class="text-gray-500">Belum ada kursus tersedia untuk tingkat Anda.</p>';
+      }
+    }
+
+    function openEnrollModal(courseId) {
+      document.getElementById('enrollCourseId').value = courseId;
+      document.getElementById('enrollModal').classList.remove('hidden');
+    }
+    function closeEnrollModal() {
+      document.getElementById('enrollModal').classList.add('hidden');
+    }
+
+    async function submitEnrollment() {
+      const fileInput = document.getElementById('paymentProof');
+      if (!fileInput.files[0]) return alert('Pilih file bukti pembayaran');
+
+      const base64 = await fileToBase64(fileInput.files[0]);
+      const res = await apiCall('enrollCourse', 'POST', {
+        studentId: user.userId,
+        courseId: document.getElementById('enrollCourseId').value,
+        fileBase64: base64,
+        fileName: fileInput.files[0].name
+      });
+
+      alert(res.message);
+      closeEnrollModal();
+    }
+
+    async function loadMyCourses() {
+      const res = await apiCall('getStudentCourses', 'GET', { studentId: user.userId });
+      const list = document.getElementById('myCoursesList');
+      list.innerHTML = '';
+      if (res.status === 'success' && res.data.length > 0) {
+        for (let c of res.data) {
+          const lessons = await apiCall('getLessons', 'GET', { courseId: c.courseId });
+          const asgs = await apiCall('getStudentAssignments', 'GET', { courseId: c.courseId, studentId: user.userId });
+
+          list.innerHTML += `
+            <div class="bg-white p-4 rounded border space-y-4">
+              <div class="flex justify-between items-center border-b pb-2">
+                <h4 class="font-bold text-xl text-blue-900">${c.title}</h4>
+                <a href="${c.zoomLink}" target="_blank" class="bg-emerald-600 text-white px-3 py-1 rounded text-sm">Masuk Zoom Class</a>
+              </div>
+              <div>
+                <h5 class="font-semibold text-sm text-gray-700 mb-2">Materi Pembelajaran:</h5>
+                <div class="space-y-1">${renderLessons(lessons.data)}</div>
+              </div>
+              <div>
+                <h5 class="font-semibold text-sm text-gray-700 mb-2">Tugas & Evaluasi:</h5>
+                <div class="space-y-2">${renderAssignments(asgs.data)}</div>
+              </div>
+            </div>
+          `;
+        }
+      } else {
+        list.innerHTML = '<p class="text-gray-500">Anda belum memiliki kursus aktif yang disetujui.</p>';
+      }
+    }
+
+    function renderLessons(lessons) {
+      if (!lessons || lessons.length === 0) return '<p class="text-xs text-gray-500">Belum ada materi.</p>';
+      return lessons.map(l => `
+        <div class="p-2 border rounded text-sm bg-gray-50">
+          <span class="font-bold text-xs bg-blue-100 text-blue-800 px-1 rounded">${l.skillType}</span>
+          <b>${l.title}</b> - ${l.contentText}
+          ${l.audioMaterialUrl ? `<br/><audio controls src="${l.audioMaterialUrl}" class="mt-1 h-8 w-full"></audio>` : ''}
+          ${l.documentUrl ? `<br/><a href="${l.documentUrl}" target="_blank" class="text-blue-600 underline text-xs">Unduh Dokumen Modul</a>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function renderAssignments(asgs) {
+      if (!asgs || asgs.length === 0) return '<p class="text-xs text-gray-500">Belum ada tugas.</p>';
+      return asgs.map(a => `
+        <div class="p-3 border rounded text-sm bg-amber-50/50">
+          <div class="flex justify-between">
+            <b>[${a.skillType}] ${a.title}</b>
+            <span class="text-xs text-gray-500">Tenggat: ${a.dueDate}</span>
+          </div>
+          <p class="text-xs text-gray-600 mb-2">${a.description}</p>
+          ${a.submission ? `
+            <div class="bg-white p-2 rounded border text-xs">
+              Status: <b class="${a.submission.status === 'GRADED' ? 'text-green-600' : 'text-amber-600'}">${a.submission.status}</b>
+              ${a.submission.status === 'GRADED' ? ` | Nilai: <b>${a.submission.finalGrade}</b> | Catatan: ${a.submission.feedback}` : ''}
+            </div>
+          ` : `
+            <div class="space-y-2 mt-2">
+              <textarea id="textAns_${a.assignmentId}" placeholder="Tulis jawaban teks..." class="w-full p-1 border rounded text-xs"></textarea>
+              <div class="flex items-center gap-2">
+                <input type="file" id="fileAns_${a.assignmentId}" class="text-xs">
+              </div>
+              <!-- Voice Recorder -->
+              <div class="p-2 border bg-white rounded flex items-center gap-2">
+                <button type="button" onclick="startRecording('${a.assignmentId}')" class="bg-red-600 text-white px-2 py-1 rounded text-xs">● Rekam Kalam</button>
+                <button type="button" onclick="stopRecording('${a.assignmentId}')" class="bg-gray-600 text-white px-2 py-1 rounded text-xs">Stop</button>
+                <audio id="audioPreview_${a.assignmentId}" controls class="h-6 w-48 hidden"></audio>
+              </div>
+              <button onclick="submitAssignment('${a.assignmentId}')" class="bg-blue-900 text-white px-3 py-1 rounded text-xs">Kirim Tugas</button>
+            </div>
+          `}
+        </div>
+      `).join('');
+    }
+
+    // Voice Recorder Handling
+    let mediaRecorders = {}, audioBlobs = {};
+    async function startRecording(asgId) {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorders[asgId] = mediaRecorder;
+      let chunks = [];
+
+      mediaRecorder.ondataavailable = e => chunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        audioBlobs[asgId] = blob;
+        const audioUrl = URL.createObjectURL(blob);
+        const preview = document.getElementById(`audioPreview_${asgId}`);
+        preview.src = audioUrl;
+        preview.classList.remove('hidden');
+      };
+
+      mediaRecorder.start();
+      alert('Merekam suara dimulaii...');
+    }
+
+    function stopRecording(asgId) {
+      if (mediaRecorders[asgId]) {
+        mediaRecorders[asgId].stop();
+        alert('Rekaman selesai.');
+      }
+    }
+
+    async function submitAssignment(asgId) {
+      const textAns = document.getElementById(`textAns_${asgId}`).value;
+      const fileInput = document.getElementById(`fileAns_${asgId}`);
+      let fileBase64 = '', fileName = '', audioBase64 = '', audioName = '';
+
+      if (fileInput.files[0]) {
+        fileBase64 = await fileToBase64(fileInput.files[0]);
+        fileName = fileInput.files[0].name;
+      }
+
+      if (audioBlobs[asgId]) {
+        audioBase64 = await fileToBase64(audioBlobs[asgId]);
+        audioName = `kalam_${user.userId}_${asgId}.webm`;
+      }
+
+      const res = await apiCall('submitAssignment', 'POST', {
+        assignmentId: asgId,
+        studentId: user.userId,
+        textAnswer: textAns,
+        fileBase64: fileBase64,
+        fileName: fileName,
+        audioBase64: audioBase64,
+        audioName: audioName
+      });
+
+      alert(res.message);
+      loadMyCourses();
+    }
+
+    async function loadCertificates() {
+      const res = await apiCall('getStudentCertificates', 'GET', { studentId: user.userId });
+      const list = document.getElementById('certList');
+      list.innerHTML = '';
+      if (res.status === 'success' && res.data.length > 0) {
+        res.data.forEach(c => {
+          list.innerHTML += `
+            <div class="bg-white p-4 rounded border flex justify-between items-center">
+              <div>
+                <h4 class="font-bold">${c.courseTitle}</h4>
+                <p class="text-xs text-gray-500">Kode Sertifikat: ${c.certCode} | Nilai Rata-Rata: ${c.finalAverageScore}</p>
+              </div>
+              <a href="${c.pdfUrl}" target="_blank" class="bg-emerald-700 text-white px-3 py-1 rounded text-sm">Unduh Sertifikat PDF</a>
+            </div>
+          `;
+        });
+      } else {
+        list.innerHTML = '<p class="text-gray-500">Belum ada sertifikat kelulusan yang diterbitkan.</p>';
+      }
+    }
+
+    loadCatalog();
+  </script>
+</body>
+</html>

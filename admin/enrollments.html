@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Persetujuan Pendaftaran - MADARABIC</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+  <nav class="bg-slate-900 text-white p-4 flex justify-between items-center">
+    <span class="font-bold text-lg">MADARABIC - Panel Admin</span>
+    <button onclick="logout()" class="bg-red-600 px-3 py-1 rounded text-sm">Keluar</button>
+  </nav>
+
+  <div class="max-w-6xl mx-auto p-4 space-y-6">
+    <div class="flex gap-4 border-b pb-2">
+      <a href="index.html" class="text-gray-600">Ringkasan Statistik</a>
+      <a href="enrollments.html" class="font-bold text-slate-900 underline">Persetujuan Pendaftaran (Enrollments)</a>
+    </div>
+
+    <div class="bg-white p-4 rounded border overflow-x-auto">
+      <h3 class="font-bold text-lg mb-4">Persetujuan Pendaftaran Siswa</h3>
+      <table class="w-full text-left text-sm border-collapse">
+        <thead>
+          <tr class="bg-gray-100 border-b">
+            <th class="p-2 border">Siswa</th>
+            <th class="p-2 border">Kursus</th>
+            <th class="p-2 border">Bukti Bayar</th>
+            <th class="p-2 border">Status</th>
+            <th class="p-2 border">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="enrTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="../assets/js/config.js"></script>
+  <script>
+    checkAuth('Admin');
+
+    async function loadEnrollments() {
+      const res = await apiCall('getEnrollments', 'GET');
+      const tbody = document.getElementById('enrTable');
+      tbody.innerHTML = '';
+
+      if (res.status === 'success' && res.data.length > 0) {
+        res.data.forEach(e => {
+          tbody.innerHTML += `
+            <tr class="border-b">
+              <td class="p-2 border font-semibold">${e.studentName}</td>
+              <td class="p-2 border">${e.courseTitle}</td>
+              <td class="p-2 border">
+                ${e.paymentProofUrl ? `<a href="${e.paymentProofUrl}" target="_blank" class="text-blue-600 underline">Lihat Bukti</a>` : '-'}
+              </td>
+              <td class="p-2 border">
+                <span class="px-2 py-0.5 rounded text-xs font-bold ${e.status === 'APPROVED' ? 'bg-green-100 text-green-800' : e.status === 'REJECTED' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}">${e.status}</span>
+              </td>
+              <td class="p-2 border space-x-1">
+                ${e.status === 'PENDING' ? `
+                  <button onclick="updateStatus('${e.enrollmentId}', 'APPROVED')" class="bg-green-700 text-white px-2 py-1 rounded text-xs">Setujui</button>
+                  <button onclick="updateStatus('${e.enrollmentId}', 'REJECTED')" class="bg-red-700 text-white px-2 py-1 rounded text-xs">Tolak</button>
+                ` : '-'}
+              </td>
+            </tr>
+          `;
+        });
+      } else {
+        tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-500">Belum ada pendaftaran.</td></tr>';
+      }
+    }
+
+    async function updateStatus(enrId, status) {
+      const res = await apiCall('updateEnrollmentStatus', 'POST', { enrollmentId: enrId, status: status });
+      alert(res.message);
+      loadEnrollments();
+    }
+
+    loadEnrollments();
+  </script>
+</body>
+</html>

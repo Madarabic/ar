@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Placement Test - MADARABIC</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen p-4">
+  <div class="max-w-2xl mx-auto bg-white p-6 rounded border border-gray-200">
+    <div class="flex justify-between items-center border-b pb-4 mb-4">
+      <h1 class="text-xl font-bold text-gray-800">Ujian Penempatan Bahasa Arab</h1>
+      <span id="timer" class="text-red-600 font-mono font-bold">15:00</span>
+    </div>
+
+    <div id="testArea" class="space-y-6">
+      <p class="text-gray-600">Memuat soal...</p>
+    </div>
+
+    <div id="resultArea" class="hidden text-center py-8">
+      <h2 class="text-2xl font-bold text-gray-800 mb-2">Hasil Ujian Penempatan</h2>
+      <p class="text-lg">Skor Anda: <span id="scoreText" class="font-bold text-blue-800">0</span></p>
+      <p class="text-md mt-2">Tingkat Bahasa Arab Rekomendasi:</p>
+      <div id="levelBadge" class="inline-block px-4 py-2 my-4 rounded text-white font-bold text-xl bg-emerald-600">Mubtadi</div>
+      <br>
+      <a href="index.html" class="inline-block mt-4 bg-blue-900 text-white px-6 py-2 rounded">Masuk ke Dashboard Kursus</a>
+    </div>
+
+    <button id="btnSubmit" onclick="submitTest()" class="mt-6 w-full bg-emerald-700 text-white py-2 rounded font-semibold hover:bg-emerald-800 hidden">Kirim Jawaban</button>
+  </div>
+
+  <script src="../assets/js/config.js"></script>
+  <script>
+    const user = checkAuth('Student');
+    let questions = [];
+    let timeLeft = 900; // 15 Menit
+
+    async function loadQuestions() {
+      const res = await apiCall('getPlacementQuestions', 'GET');
+      if (res.status === 'success') {
+        questions = res.data;
+        renderQuestions();
+        startTimer();
+      }
+    }
+
+    function renderQuestions() {
+      const area = document.getElementById('testArea');
+      area.innerHTML = '';
+      questions.forEach((q, idx) => {
+        area.innerHTML += `
+          <div class="border p-4 rounded bg-gray-50">
+            <p class="font-semibold text-gray-800 mb-2">${idx + 1}. ${q.question}</p>
+            <div class="space-y-1">
+              <label class="block"><input type="radio" name="${q.testId}" value="A"> A. ${q.optionA}</label>
+              <label class="block"><input type="radio" name="${q.testId}" value="B"> B. ${q.optionB}</label>
+              <label class="block"><input type="radio" name="${q.testId}" value="C"> C. ${q.optionC}</label>
+              <label class="block"><input type="radio" name="${q.testId}" value="D"> D. ${q.optionD}</label>
+            </div>
+          </div>
+        `;
+      });
+      document.getElementById('btnSubmit').classList.remove('hidden');
+    }
+
+    function startTimer() {
+      const timerEl = document.getElementById('timer');
+      const interval = setInterval(() => {
+        let m = Math.floor(timeLeft / 60);
+        let s = timeLeft % 60;
+        timerEl.innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+        if (timeLeft <= 0) {
+          clearInterval(interval);
+          submitTest();
+        }
+        timeLeft--;
+      }, 1000);
+    }
+
+    async function submitTest() {
+      const answers = {};
+      questions.forEach(q => {
+        const selected = document.querySelector(`input[name="${q.testId}"]:checked`);
+        if (selected) answers[q.testId] = selected.value;
+      });
+
+      document.getElementById('testArea').classList.add('hidden');
+      document.getElementById('btnSubmit').classList.add('hidden');
+
+      const res = await apiCall('submitPlacementTest', 'POST', {
+        studentId: user.userId,
+        answers: answers
+      });
+
+      if (res.status === 'success') {
+        user.assignedLevel = res.recommendedLevel;
+        localStorage.setItem('madarabic_user', JSON.stringify(user));
+
+        document.getElementById('scoreText').innerText = res.score;
+        document.getElementById('levelBadge').innerText = res.recommendedLevel;
+        document.getElementById('resultArea').classList.remove('hidden');
+      }
+    }
+
+    loadQuestions();
+  </script>
+</body>
+</html>

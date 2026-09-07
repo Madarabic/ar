@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Pengajar - MADARABIC</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+  <nav class="bg-emerald-900 text-white p-4 flex justify-between items-center">
+    <span class="font-bold text-lg">MADARABIC - Panel Pengajar</span>
+    <button onclick="logout()" class="bg-red-600 px-3 py-1 rounded text-sm">Keluar</button>
+  </nav>
+
+  <div class="max-w-6xl mx-auto p-4 space-y-6">
+    <div class="flex gap-4">
+      <a href="index.html" class="font-bold text-emerald-900 underline">Manajemen Modul & Tugas</a>
+      <a href="taqyim.html" class="text-gray-600">Modul Penilaian (Taqyim)</a>
+    </div>
+
+    <!-- Buat Kursus -->
+    <div class="bg-white p-4 rounded border">
+      <h3 class="font-bold text-md mb-3">Buat Kursus Baru</h3>
+      <form id="courseForm" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <input type="text" id="cTitle" placeholder="Judul Kursus" required class="p-2 border rounded">
+        <select id="cLevel" class="p-2 border rounded">
+          <option value="Mubtadi">Mubtadi (Beginner)</option>
+          <option value="Mutawassit">Mutawassit (Intermediate)</option>
+          <option value="Mutaqaddim">Mutaqaddim (Advanced)</option>
+        </select>
+        <input type="url" id="cZoom" placeholder="Link Google Meet / Zoom" required class="p-2 border rounded">
+        <button type="submit" class="md:col-span-3 bg-emerald-800 text-white py-2 rounded">Tambah Kursus</button>
+      </form>
+    </div>
+
+    <!-- Tambah Materi (Lesson) -->
+    <div class="bg-white p-4 rounded border">
+      <h3 class="font-bold text-md mb-3">Upload Modul / Materi Pembelajaran</h3>
+      <form id="lessonForm" class="space-y-3">
+        <select id="lCourse" required class="w-full p-2 border rounded"></select>
+        <div class="grid grid-cols-2 gap-2">
+          <select id="lSkill" class="p-2 border rounded">
+            <option value="Istima'">Istima' (Listening)</option>
+            <option value="Kalam">Kalam (Speaking)</option>
+            <option value="Qira'ah">Qira'ah (Reading)</option>
+            <option value="Kitabah">Kitabah (Writing)</option>
+          </select>
+          <input type="text" id="lTitle" placeholder="Judul Materi" required class="p-2 border rounded">
+        </div>
+        <textarea id="lText" placeholder="Ringkasan Teks / Konten Materi" class="w-full p-2 border rounded"></textarea>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="text-xs">Audio MP3:</label><input type="file" id="lAudio" accept="audio/*" class="w-full text-xs"></div>
+          <div><label class="text-xs">Dokumen PDF/Word:</label><input type="file" id="lDoc" class="w-full text-xs"></div>
+        </div>
+        <button type="submit" class="bg-blue-900 text-white px-4 py-2 rounded text-sm">Upload Materi</button>
+      </form>
+    </div>
+
+    <!-- Tambah Tugas (Assignment) -->
+    <div class="bg-white p-4 rounded border">
+      <h3 class="font-bold text-md mb-3">Buat Tugas Baru</h3>
+      <form id="asgForm" class="space-y-3">
+        <select id="aCourse" required class="w-full p-2 border rounded"></select>
+        <div class="grid grid-cols-2 gap-2">
+          <select id="aSkill" class="p-2 border rounded">
+            <option value="Istima'">Istima' (Listening)</option>
+            <option value="Kalam">Kalam (Speaking - Audio WebM)</option>
+            <option value="Qira'ah">Qira'ah (Reading)</option>
+            <option value="Kitabah">Kitabah (Writing)</option>
+          </select>
+          <input type="text" id="aTitle" placeholder="Judul Tugas" required class="p-2 border rounded">
+        </div>
+        <textarea id="aDesc" placeholder="Instruksi Tugas" class="w-full p-2 border rounded"></textarea>
+        <input type="date" id="aDue" required class="p-2 border rounded">
+        <button type="submit" class="bg-amber-700 text-white px-4 py-2 rounded text-sm">Buat Tugas</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="../assets/js/config.js"></script>
+  <script>
+    const user = checkAuth('Instructor');
+
+    async function loadCoursesSelect() {
+      const res = await apiCall('getCourses', 'GET', { level: 'ALL' });
+      const options = res.data.map(c => `<option value="${c.courseId}">${c.title} (${c.level})</option>`).join('');
+      document.getElementById('lCourse').innerHTML = options;
+      document.getElementById('aCourse').innerHTML = options;
+    }
+
+    document.getElementById('courseForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const res = await apiCall('createCourse', 'POST', {
+        title: document.getElementById('cTitle').value,
+        level: document.getElementById('cLevel').value,
+        zoomLink: document.getElementById('cZoom').value,
+        instructorId: user.userId
+      });
+      alert(res.message);
+      loadCoursesSelect();
+    });
+
+    document.getElementById('lessonForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const audioF = document.getElementById('lAudio').files[0];
+      const docF = document.getElementById('lDoc').files[0];
+
+      const res = await apiCall('createLesson', 'POST', {
+        courseId: document.getElementById('lCourse').value,
+        skillType: document.getElementById('lSkill').value,
+        title: document.getElementById('lTitle').value,
+        contentText: document.getElementById('lText').value,
+        audioBase64: audioF ? await fileToBase64(audioF) : '',
+        audioName: audioF ? audioF.name : '',
+        docBase64: docF ? await fileToBase64(docF) : '',
+        docName: docF ? docF.name : ''
+      });
+      alert(res.message);
+    });
+
+    document.getElementById('asgForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const res = await apiCall('createAssignment', 'POST', {
+        courseId: document.getElementById('aCourse').value,
+        skillType: document.getElementById('aSkill').value,
+        title: document.getElementById('aTitle').value,
+        description: document.getElementById('aDesc').value,
+        dueDate: document.getElementById('aDue').value
+      });
+      alert(res.message);
+    });
+
+    loadCoursesSelect();
+  </script>
+</body>
+</html>
